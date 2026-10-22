@@ -1,6 +1,6 @@
 # コメント先読み＆未視聴のみ
 
-YouTubeを少し便利にする Edge / Chrome 用の拡張機能です。
+YouTubeを少し便利にする、パソコン（Edge・Chrome・Brave）とスマホ（iPhone・Android）用のツールです。
 
 - **コメント先読み**：サムネイルの💬ボタンを押すと、動画を開かずにその動画の人気コメントが読めます。
 - **未視聴のみ**：チャンネルの「動画」タブで、見た動画（赤い再生バーが付いた動画）を隠して未視聴だけを表示します。ボタンに未視聴の本数も出ます。
@@ -9,34 +9,78 @@ YouTubeを少し便利にする Edge / Chrome 用の拡張機能です。
 
 APIキーや登録は要りません。開いているYouTubeのログイン状態をそのまま使います。
 
+## 対応環境
+
+| 端末 | 使えるブラウザ | 入れるもの |
+| --- | --- | --- |
+| Windows | Edge・Chrome・Brave | 拡張機能（ZIP） |
+| Mac | Edge・Chrome・Brave | 拡張機能（ZIP） |
+| iPhone | Safari | ユーザースクリプト（アプリ「Userscripts」） |
+| Android | Edge・Firefox | ユーザースクリプト（拡張機能「Tampermonkey」） |
+
+- どの端末でも、YouTubeアプリでは使えません。ブラウザでYouTubeを開いたときだけ動きます
+- 使える機能は4つとも同じです（コメント先読み・未視聴のみ・視聴済み✓・未視聴の連続再生）
+- 視聴済み✓はブラウザごとに保存されるため、端末どうしでは共有されません
+
 ## ダウンロード
 
-**[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/raw/main/download/YouTubeCommentSakiyomi.zip)**
+- **パソコン用（Windows・Mac）**：[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/raw/main/download/YouTubeCommentSakiyomi.zip)（バージョン 1.3.0）
+- **スマホ用（iPhone・Android）**：[📱 スマホ用スクリプト](https://raw.githubusercontent.com/hakusyaku-lab/youtube-comment-sakiyomi/main/mobile/comment-sakiyomi.user.js)（バージョン 1.1.0）
 
-リンクを押すとすぐにZIPのダウンロードが始まります（現在のバージョン：1.3.0）。
+## 入れ方：Windows
 
-## 入れ方（Edge）
-
-1. 上の「最新版をダウンロード」からZIPをダウンロードし、好きな場所に展開する
-2. Edgeのアドレス欄に `edge://extensions` と入れて開く
-3. 左側の「開発者モード」をオンにする
-4. 「展開して読み込み」を押し、展開したフォルダ（`manifest.json` が入っているフォルダ）を選ぶ
+1. 上の「パソコン用」からZIPをダウンロードし、好きな場所に展開する（展開したフォルダは消さずに置いておく）
+2. ブラウザで拡張機能の画面を開く
+   - Edge：アドレス欄に `edge://extensions`
+   - Chrome：アドレス欄に `chrome://extensions`
+   - Brave：アドレス欄に `brave://extensions`
+3. 「開発者モード」（Chrome・Braveは「デベロッパーモード」）をオンにする
+4. 「展開して読み込み」（Chrome・Braveは「パッケージ化されていない拡張機能を読み込む」）を押し、展開したフォルダ（`manifest.json` が入っているフォルダ）を選ぶ
 5. YouTubeのタブを再読み込みする
 
-Chromeの場合は `chrome://extensions` で、右上の「デベロッパーモード」をオンにしてから「パッケージ化されていない拡張機能を読み込む」を選びます。
+Edgeの起動時に「開発者モードの拡張機能を無効にする」と出たら、「無効にする」は押さずに×で閉じてください。
 
-## iPhoneで使う（Safari＋Userscripts）
+## 入れ方：Mac
 
-スマホ版YouTube（m.youtube.com）で、コメント先読み・未視聴のみ・視聴済み✓・未視聴の連続再生が使えます。YouTubeアプリでは使えません。
+Windowsと同じ手順で、Edge・Chrome・Braveに入れられます。
+
+1. 上の「パソコン用」からZIPをダウンロードする（Safariなら自動で展開されます。されない場合はZIPをダブルクリック）
+2. 展開したフォルダを「書類」などに移しておく（ダウンロードフォルダのままでも動きますが、消さないように注意）
+3. 以降は「入れ方：Windows」の2〜5と同じです
+
+MacのSafariには対応していません。
+
+## 入れ方：iPhone（Safari＋Userscripts）
 
 1. App Storeで無料アプリ「Userscripts」を入れる
 2. 設定アプリ →「アプリ」→「Safari」→「拡張機能」→「Userscripts」で「機能拡張を許可」をオンにする
-3. iPhoneのSafariで次のリンクを開く
-   **[📱 iPhone用スクリプトを開く](https://raw.githubusercontent.com/hakusyaku-lab/youtube-comment-sakiyomi/main/mobile/comment-sakiyomi.user.js)**
+3. iPhoneのSafariで、上の「スマホ用スクリプト」のリンクを開く
 4. アドレスバー左の「ぁあ」→「Userscripts」をタップし、このサイトでの使用を許可してから「Install」を押す
 5. Safariで m.youtube.com を開き、同じく「ぁあ」→「Userscripts」でYouTubeでの使用を許可する
 
-スマホではマウスを乗せる操作がないため、💬と✓はサムネイルに常に表示されます。視聴済み✓はそのiPhoneのSafariに保存され、PCのチェックとは別になります。
+Brave・Chrome・Edge・FirefoxのiPhone版は拡張機能を入れられないため使えません。
+
+## 入れ方：Android（Edge または Firefox＋Tampermonkey）
+
+1. 拡張機能「Tampermonkey」を入れる
+   - Edge：右下の「≡」→「拡張機能」→ 一覧から「Tampermonkey」の「取得」
+   - Firefox：右上の「⋮」→「アドオン」→「アドオンマネージャー」→「Tampermonkey」の「＋」
+2. 同じブラウザで、上の「スマホ用スクリプト」のリンクを開く
+3. Tampermonkeyのインストール画面が出るので「インストール」を押す
+4. ブラウザで m.youtube.com を開く
+
+ChromeとBraveのAndroid版は拡張機能を入れられないため使えません。Android版の動作は、スマホ版YouTubeの画面で確認していますが、実機のAndroidではまだ試していません。
+
+## スマホでの見え方
+
+- マウスを乗せる操作がないため、💬と✓はサムネイルの左上に常に表示されます
+- 💬を押すと、画面の下からコメントが出てきます。外側をタップすると閉じます
+- 「未視聴のみ」・連続再生・再生順のスイッチは、チャンネルの「動画」タブで並び替えボタンのすぐ下に出ます
+
+## 更新のしかた
+
+- **パソコン**：新しいZIPを展開して、前のフォルダの中身と入れ替え、拡張機能の画面で「再読み込み」（回る矢印）を押す
+- **スマホ**：「スマホ用スクリプト」のリンクをもう一度開いて入れ直す
 
 ## 使い方
 
@@ -78,3 +122,5 @@ Chromeの場合は `chrome://extensions` で、右上の「デベロッパーモ
 | `filter.js` | 未視聴のみ |
 | `content.css` | 見た目 |
 | `使い方.txt` | 使い方（PCに置く用） |
+| `download/` | パソコン用のダウンロードZIP |
+| `mobile/comment-sakiyomi.user.js` | スマホ用スクリプト（iPhone・Android） |
