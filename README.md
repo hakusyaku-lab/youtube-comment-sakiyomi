@@ -24,6 +24,19 @@ APIキーや登録は要りません。開いているYouTubeのログイン状�
 
 Chromeの場合は `chrome://extensions` で、右上の「デベロッパーモード」をオンにしてから「パッケージ化されていない拡張機能を読み込む」を選びます。
 
+## iPhoneで使う（Safari＋Userscripts）
+
+スマホ版YouTube（m.youtube.com）で、コメント先読み・未視聴のみ・視聴済み✓の3つが使えます。YouTubeアプリでは使えません。
+
+1. App Storeで無料アプリ「Userscripts」を入れる
+2. 設定アプリ →「アプリ」→「Safari」→「拡張機能」→「Userscripts」で「機能拡張を許可」をオンにする
+3. iPhoneのSafariで次のリンクを開く
+   **[📱 iPhone用スクリプトを開く](https://raw.githubusercontent.com/hakusyaku-lab/youtube-comment-sakiyomi/main/mobile/comment-sakiyomi.user.js)**
+4. アドレスバー左の「ぁあ」→「Userscripts」をタップし、このサイトでの使用を許可してから「Install」を押す
+5. Safariで m.youtube.com を開き、同じく「ぁあ」→「Userscripts」でYouTubeでの使用を許可する
+
+スマホではマウスを乗せる操作がないため、💬と✓はサムネイルに常に表示されます。視聴済み✓はそのiPhoneのSafariに保存され、PCのチェックとは別になります。
+
 ## 使い方
 
 ### コメント先読み
