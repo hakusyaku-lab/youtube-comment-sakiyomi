@@ -7,9 +7,15 @@ YouTubeを少し便利にする Edge / Chrome 用の拡張機能です。
 
 APIキーや登録は要りません。開いているYouTubeのログイン状態をそのまま使います。
 
+## ダウンロード
+
+**[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases/latest/download/YouTubeCommentSakiyomi.zip)**
+
+過去のバージョンは [リリース一覧](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases) にあります。
+
 ## 入れ方（Edge）
 
-1. このページの緑の「Code」ボタン →「Download ZIP」でダウンロードし、好きな場所に展開する
+1. 上の「最新版をダウンロード」からZIPをダウンロードし、好きな場所に展開する
 2. Edgeのアドレス欄に `edge://extensions` と入れて開く
 3. 左側の「開発者モード」をオンにする
 4. 「展開して読み込み」を押し、展開したフォルダ（`manifest.json` が入っているフォルダ）を選ぶ
