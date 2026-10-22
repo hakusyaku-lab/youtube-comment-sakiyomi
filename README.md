@@ -9,9 +9,9 @@ APIキーや登録は要りません。開いているYouTubeのログイン状�
 
 ## ダウンロード
 
-**[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases/latest/download/YouTubeCommentSakiyomi.zip)**
+**[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/raw/main/download/YouTubeCommentSakiyomi.zip)**
 
-過去のバージョンは [リリース一覧](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases) にあります。
+リンクを押すとすぐにZIPのダウンロードが始まります（現在のバージョン：1.1.0）。
 
 ## 入れ方（Edge）
 
