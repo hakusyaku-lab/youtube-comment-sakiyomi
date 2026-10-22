@@ -103,6 +103,22 @@
   const MAX_PLAY = 50; // YouTubeの一時再生リストに並べられる上限
   // 並び順：YouTubeの並び替えボタン（左から 新しい順・人気の動画・古い順）の位置
   const SORTS = [['oldest', '古い順', 2], ['newest', '新しい順', 0], ['popular', '人気順', 1]];
+  // 並べ方：選ばれた（最大50本の）未視聴を、再生時間で並べ替えるかどうか
+  const LENGTHS = [['', 'そのまま'], ['short', '短い順'], ['long', '長い順']];
+  const KEY_ORDER = 'csy-play-order'; // '' = そのまま / 'short' / 'long'
+  let lengthOrder = store.get(KEY_ORDER, '');
+  if (lengthOrder !== 'short' && lengthOrder !== 'long') lengthOrder = '';
+  // サムネイルの「32:10」などの表示から再生時間（秒）を読む。無ければ null
+  const TIME_RE = /^\d{1,2}(:\d{2}){1,2}$/;
+  function durationOf(item) {
+    for (const e of item.querySelectorAll('badge-shape, .ytBadgeShapeText, #time-status, ytd-thumbnail-overlay-time-status-renderer, span, div')) {
+      if (e.childElementCount) continue;
+      const t = (e.textContent || '').trim();
+      if (!TIME_RE.test(t)) continue;
+      return t.split(':').reduce((a, n) => a * 60 + Number(n), 0);
+    }
+    return null;
+  }
   function sortButtons() {
     return [...document.querySelectorAll('ytd-browse:not([hidden]) chip-bar-view-model chip-view-model button, ytd-browse:not([hidden]) ytd-feed-filter-chip-bar-renderer yt-chip-cloud-chip-renderer')];
   }
@@ -120,6 +136,20 @@
       if (id && !ids.includes(id)) ids.push(id);
     }
     return ids;
+  }
+  // 選ばれた動画を再生時間で並べ替える（再生時間が読めない動画＝ライブなどは最後）
+  function sortByLength(ids) {
+    if (!lengthOrder) return ids;
+    const sec = new Map();
+    for (const item of listItems()) {
+      const id = videoIdOf(item);
+      if (id && ids.includes(id) && !sec.has(id)) sec.set(id, durationOf(item));
+    }
+    const dir = lengthOrder === 'short' ? 1 : -1;
+    return ids
+      .map((id, i) => ({ id, i, s: sec.get(id) }))
+      .sort((a, b) => (a.s == null) - (b.s == null) || (a.s == null || b.s == null ? a.i - b.i : (a.s - b.s) * dir || a.i - b.i))
+      .map((v) => v.id);
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let busy = false;
@@ -150,7 +180,8 @@
         await sleep(2000);
         return;
       }
-      location.href = '/watch_videos?video_ids=' + ids.slice(0, MAX_PLAY).join(',');
+      // 選び方の順で先頭50本を選んでから、必要なら再生時間で並べ替える
+      location.href = '/watch_videos?video_ids=' + sortByLength(ids.slice(0, MAX_PLAY)).join(',');
     } finally {
       busy = false;
       tick();
@@ -178,6 +209,7 @@
   let menu = null;
   let playBtn = null;
   let seg = null;
+  let seg2 = null;
   function setPlayLabel(text) {
     if (playBtn && playBtn.textContent !== text) playBtn.textContent = text;
   }
@@ -237,22 +269,42 @@
     playBtn.title = '一覧の未視聴の動画を、選んだ順番で続けて再生します（最大50本）';
     playBtn.addEventListener('click', playUnwatched);
 
+    // 選び方（YouTubeの並び替えと連動）
     seg = document.createElement('div');
     seg.className = 'csy-seg';
     seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', '再生する順番');
+    seg.setAttribute('aria-label', '選び方');
     for (const [key, text, idx] of SORTS) {
       const b = document.createElement('button');
       b.type = 'button';
       b.dataset.idx = String(idx);
       b.textContent = text;
+      b.title = `YouTubeの並び替えを「${text}」にして、その順で未視聴を最大50本選びます`;
       b.addEventListener('click', () => {
         const target = sortButtons()[idx];
         if (target && target.getAttribute('aria-selected') !== 'true') target.click();
       });
       seg.append(b);
     }
-    wrap.append(btn, opt, menu, playBtn, seg);
+    // 並べ方（選んだ50本を再生時間で並べ替える）
+    seg2 = document.createElement('div');
+    seg2.className = 'csy-seg';
+    seg2.setAttribute('role', 'group');
+    seg2.setAttribute('aria-label', '並べ方');
+    for (const [key, text] of LENGTHS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.key = key;
+      b.textContent = text;
+      b.title = key ? `選んだ未視聴の動画を、再生時間の${key === 'short' ? '短い' : '長い'}順に並べて再生します` : '選んだ順番のまま再生します';
+      b.addEventListener('click', () => {
+        lengthOrder = key;
+        store.set(KEY_ORDER, lengthOrder);
+        tick();
+      });
+      seg2.append(b);
+    }
+    wrap.append(btn, opt, menu, playBtn, seg, seg2);
     return wrap;
   }
 
@@ -269,13 +321,15 @@
       : `未視聴のみ（未視聴 ${unwatched}本）`;
     if (label.textContent !== text) label.textContent = text; // 同じ内容なら書き換えない（監視の無限ループ防止）
     btnTitle(`読み込み済み ${unwatched + watched}本のうち、未視聴 ${unwatched}本・視聴済み ${watched}本。下へスクロールすると残りも数えます`);
-    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜）` : '▶ 未視聴を連続再生');
+    const orderName = lengthOrder === 'short' ? '・短い順' : lengthOrder === 'long' ? '・長い順' : '';
+    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜${orderName}）` : '▶ 未視聴を連続再生');
     const cur = currentSortIndex();
-    for (const b of seg.querySelectorAll('button')) {
-      const sel = Number(b.dataset.idx) === cur;
+    const mark = (b, sel) => {
       if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
       if (b.getAttribute('aria-pressed') !== String(sel)) b.setAttribute('aria-pressed', String(sel));
-    }
+    };
+    for (const b of seg.querySelectorAll('button')) mark(b, Number(b.dataset.idx) === cur);
+    for (const b of seg2.querySelectorAll('button')) mark(b, b.dataset.key === lengthOrder);
     for (const b of menu.querySelectorAll('button')) b.classList.toggle('is-sel', b.dataset.mode === mode);
   }
 
