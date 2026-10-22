@@ -27,6 +27,8 @@ APIキーや登録は要りません。開いているYouTubeのログイン状�
 - **パソコン用（Windows・Mac）**：[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/raw/main/download/YouTubeCommentSakiyomi.zip)（バージョン 1.4.0）
 - **スマホ用（iPhone・Android）**：[📱 スマホ用スクリプト](https://raw.githubusercontent.com/hakusyaku-lab/youtube-comment-sakiyomi/main/mobile/comment-sakiyomi.user.js)（バージョン 1.2.0）
 
+これまでの変更点は [更新履歴（CHANGELOG.md）](CHANGELOG.md) にまとめています。
+
 ## 入れ方：Windows
 
 1. 上の「パソコン用」からZIPをダウンロードし、好きな場所に展開する（展開したフォルダは消さずに置いておく）
@@ -130,5 +132,6 @@ ChromeとBraveのAndroid版は拡張機能を入れられないため使えま�
 | `filter.js` | 未視聴のみ |
 | `content.css` | 見た目 |
 | `使い方.txt` | 使い方（PCに置く用） |
+| `CHANGELOG.md` | 更新履歴 |
 | `download/` | パソコン用のダウンロードZIP |
 | `mobile/comment-sakiyomi.user.js` | スマホ用スクリプト（iPhone・Android） |
