@@ -18,7 +18,9 @@
   transition: opacity 0.15s, transform 0.15s, background 0.15s;
 }
 *:hover > .csy-btn,
-.csy-btn:focus-visible {
+*:hover > .csy-check,
+.csy-btn:focus-visible,
+.csy-check:focus-visible {
   opacity: 1;
   transform: scale(1);
 }
@@ -259,4 +261,45 @@ html.csy-unwatched-only ytd-grid-video-renderer[data-csy-watched] {
   content: "✓ ";
   color: #b07d00;
   font-weight: 700;
+}
+
+/* ---------- 視聴済みチェック ---------- */
+.csy-check {
+  position: absolute;
+  top: 6px;
+  left: 46px;
+  z-index: 50;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 15, 20, 0.78);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 34px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+}
+.csy-check:hover {
+  background: #2f9e5b;
+}
+.csy-check:focus-visible {
+  outline: 2px solid #2f9e5b;
+  outline-offset: 2px;
+}
+/* チェック済みは常に表示 */
+.csy-check.is-marked {
+  opacity: 1;
+  transform: scale(1);
+  background: #2f9e5b;
+}
+.csy-check.is-marked:hover {
+  background: #c0392b;
+}
+@media (prefers-reduced-motion: reduce) {
+  .csy-check { transition: none; }
 }

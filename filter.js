@@ -1,4 +1,4 @@
-// 未視聴のみ — チャンネルの動画一覧で、見た動画（赤い再生バーが付いた動画）を隠す
+// 未視聴のみ — チャンネルの動画一覧で、見た動画（赤い再生バーが付いた動画／手動で✓を付けた動画）を隠す
 (() => {
   'use strict';
 
@@ -17,6 +17,69 @@
   };
   let on = store.get(KEY_ON, '0') === '1';
   let mode = store.get(KEY_MODE, 'any');
+
+  // ---------- 手動の「視聴済み」チェック（Edgeの拡張機能用保存領域に保存） ----------
+  const KEY_MANUAL = 'csyManualWatched'; // { 動画ID: チェックした時刻 }
+  let manual = {};
+  const ext = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+  function loadManual() {
+    if (!ext) return;
+    ext.get(KEY_MANUAL, (r) => {
+      manual = (r && r[KEY_MANUAL]) || {};
+      tick();
+    });
+  }
+  function toggleManual(id) {
+    if (manual[id]) delete manual[id];
+    else manual[id] = Date.now();
+    if (ext) ext.set({ [KEY_MANUAL]: manual });
+    tick();
+  }
+  if (ext && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes[KEY_MANUAL]) {
+        manual = changes[KEY_MANUAL].newValue || {};
+        tick();
+      }
+    });
+  }
+  function videoIdOf(el) {
+    const a = el.querySelector('a[href*="/watch?v="]');
+    if (!a) return null;
+    try { return new URL(a.getAttribute('href'), location.origin).searchParams.get('v'); } catch (_) { return null; }
+  }
+
+  // 💬ボタンの隣に ✓ ボタンを置く
+  function decorateChecks() {
+    for (const chat of document.querySelectorAll('.csy-btn')) {
+      const host = chat.parentElement;
+      const box = chat.closest('[data-csy-done]');
+      if (!host || !box) continue;
+      const id = box.getAttribute('data-csy-done');
+      let btn = host.querySelector(':scope > .csy-check');
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'csy-check';
+        btn.textContent = '✓';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (btn.dataset.vid) toggleManual(btn.dataset.vid);
+        }, true);
+        btn.addEventListener('mousedown', (e) => e.stopPropagation(), true);
+        host.appendChild(btn);
+      }
+      if (btn.dataset.vid !== id) btn.dataset.vid = id;
+      const marked = !!manual[id];
+      if (btn.classList.contains('is-marked') !== marked) btn.classList.toggle('is-marked', marked);
+      const tip = marked ? '視聴済みのチェックを外す' : '視聴済みにする';
+      if (btn.title !== tip) {
+        btn.title = tip;
+        btn.setAttribute('aria-label', tip);
+      }
+    }
+  }
 
   function isChannelList() {
     return /^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)\/(videos|streams|podcasts)\/?$/.test(location.pathname);
@@ -39,7 +102,8 @@
       if (!item.querySelector('a[href*="/watch?v="]')) continue; // 読み込み中の枠は数えない
       total++;
       const p = watchedPercent(item);
-      const watched = p != null && (mode === 'any' ? p > 0 : p >= 90);
+      const id = videoIdOf(item);
+      const watched = (id && !!manual[id]) || (p != null && (mode === 'any' ? p > 0 : p >= 90));
       item.toggleAttribute('data-csy-watched', watched);
       if (watched) watchedCount++;
     }
@@ -134,6 +198,7 @@
   }
 
   function tick() {
+    decorateChecks();
     ensureChip();
     apply();
   }
@@ -146,4 +211,5 @@
   }).observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('yt-navigate-finish', () => setTimeout(tick, 300));
   tick();
+  loadManual();
 })();
