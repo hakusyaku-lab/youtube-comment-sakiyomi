@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         コメント先読み＆未視聴のみ（スマホ版）
 // @namespace    https://github.com/hakusyaku-lab/youtube-comment-sakiyomi
-// @version      1.1.0
+// @version      1.2.0
 // @description  スマホ版YouTubeで、動画を開く前に人気コメントを確認し、チャンネルの動画一覧を未視聴だけに絞り込めます。
 // @match        https://m.youtube.com/*
 // @run-at       document-end
@@ -77,7 +77,7 @@ html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none
 .csy-seg { display: flex; flex: 1 1 100%; border-radius: 8px; overflow: hidden; background: rgba(128, 128, 128, 0.16); }
 .csy-seg button {
   flex: 1; height: 34px; border: 0; background: transparent; color: inherit;
-  font: 500 13px -apple-system, "Hiragino Sans", sans-serif; -webkit-tap-highlight-color: transparent;
+  font: 500 13px -apple-system, "Hiragino Sans", sans-serif; -webkit-tap-highlight-color: transparent; white-space: nowrap;
 }
 .csy-seg button + button { border-left: 1px solid rgba(128, 128, 128, 0.3); }
 .csy-seg button.is-sel { background: #17171c; color: #fff; }
@@ -382,6 +382,22 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
   const MAX_PLAY = 50; // YouTubeの一時再生リストに並べられる上限
   // 並び順：YouTubeの並び替えボタン（左から 新しい順・人気の動画・古い順）の位置
   const SORTS = [['oldest', '古い順', 2], ['newest', '新しい順', 0], ['popular', '人気順', 1]];
+  // 並べ方：選ばれた（最大50本の）未視聴を、再生時間で並べ替えるかどうか
+  const LENGTHS = [['', 'そのまま'], ['short', '短い順'], ['long', '長い順']];
+  const KEY_ORDER = 'csy-play-order'; // '' = そのまま / 'short' / 'long'
+  let lengthOrder = store.get(KEY_ORDER, '');
+  if (lengthOrder !== 'short' && lengthOrder !== 'long') lengthOrder = '';
+  // サムネイルの「32:10」などの表示から再生時間（秒）を読む。無ければ null
+  const TIME_RE = /^\d{1,2}(:\d{2}){1,2}$/;
+  function durationOf(item) {
+    for (const e of item.querySelectorAll('ytm-thumbnail-overlay-time-status-renderer, badge-shape, span, div')) {
+      if (e.childElementCount) continue;
+      const t = (e.textContent || '').trim();
+      if (!TIME_RE.test(t)) continue;
+      return t.split(':').reduce((a, n) => a * 60 + Number(n), 0);
+    }
+    return null;
+  }
   function sortButtons() {
     return [...document.querySelectorAll('ytm-browse chip-bar-view-model chip-view-model button')];
   }
@@ -392,16 +408,30 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
     const ids = [];
     for (const item of document.querySelectorAll('ytm-rich-item-renderer')) {
       if (isWatched(item)) continue;
-      const link = item.querySelector('a[href*="/watch?v="]');
-      const id = link && videoIdFrom(link.getAttribute('href'));
+      const id = (() => { const a = item.querySelector('a[href*="/watch?v="]'); return a && videoIdFrom(a.getAttribute('href')); })();
       if (id && !ids.includes(id)) ids.push(id);
     }
     return ids;
+  }
+  // 選ばれた動画を再生時間で並べ替える（再生時間が読めない動画＝ライブなどは最後）
+  function sortByLength(ids) {
+    if (!lengthOrder) return ids;
+    const sec = new Map();
+    for (const item of document.querySelectorAll('ytm-rich-item-renderer')) {
+      const id = (() => { const a = item.querySelector('a[href*="/watch?v="]'); return a && videoIdFrom(a.getAttribute('href')); })();
+      if (id && ids.includes(id) && !sec.has(id)) sec.set(id, durationOf(item));
+    }
+    const dir = lengthOrder === 'short' ? 1 : -1;
+    return ids
+      .map((id, i) => ({ id, i, s: sec.get(id) }))
+      .sort((a, b) => (a.s == null) - (b.s == null) || (a.s == null || b.s == null ? a.i - b.i : (a.s - b.s) * dir || a.i - b.i))
+      .map((v) => v.id);
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let busy = false;
   let playBtn = null;
   let seg = null;
+  let seg2 = null;
   function setPlayLabel(text) {
     if (playBtn && playBtn.textContent !== text) playBtn.textContent = text;
   }
@@ -432,7 +462,8 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
         await sleep(2000);
         return;
       }
-      location.href = '/watch_videos?video_ids=' + ids.slice(0, MAX_PLAY).join(',');
+      // 選び方の順で先頭50本を選んでから、必要なら再生時間で並べ替える
+      location.href = '/watch_videos?video_ids=' + sortByLength(ids.slice(0, MAX_PLAY)).join(',');
     } finally {
       busy = false;
       schedule();
@@ -495,9 +526,10 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
     playBtn.type = 'button';
     playBtn.addEventListener('click', playUnwatched);
 
+    // 選び方（YouTubeの並び替えと連動）
     seg = el('div', 'csy-seg');
     seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', '再生する順番');
+    seg.setAttribute('aria-label', '選び方');
     for (const [, text, idx] of SORTS) {
       const b = el('button', null, text);
       b.type = 'button';
@@ -508,7 +540,22 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
       });
       seg.append(b);
     }
-    wrap.append(pair, menu, playBtn, seg);
+    // 並べ方（選んだ50本を再生時間で並べ替える）
+    seg2 = el('div', 'csy-seg');
+    seg2.setAttribute('role', 'group');
+    seg2.setAttribute('aria-label', '並べ方');
+    for (const [key, text] of LENGTHS) {
+      const b = el('button', null, text);
+      b.type = 'button';
+      b.dataset.key = key;
+      b.addEventListener('click', () => {
+        lengthOrder = key;
+        store.set(KEY_ORDER, lengthOrder);
+        schedule();
+      });
+      seg2.append(b);
+    }
+    wrap.append(pair, menu, playBtn, seg, seg2);
     return wrap;
   }
 
@@ -551,13 +598,15 @@ html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-se
       const sel = b.dataset.mode === mode;
       if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
     }
-    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜）` : '▶ 未視聴を連続再生');
+    const orderName = lengthOrder === 'short' ? '・短い順' : lengthOrder === 'long' ? '・長い順' : '';
+    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜${orderName}）` : '▶ 未視聴を連続再生');
     const cur = currentSortIndex();
-    for (const b of seg.querySelectorAll('button')) {
-      const sel = Number(b.dataset.idx) === cur;
+    const mark = (b, sel) => {
       if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
       if (b.getAttribute('aria-pressed') !== String(sel)) b.setAttribute('aria-pressed', String(sel));
-    }
+    };
+    for (const b of seg.querySelectorAll('button')) mark(b, Number(b.dataset.idx) === cur);
+    for (const b of seg2.querySelectorAll('button')) mark(b, b.dataset.key === lengthOrder);
   }
 
   // ================= 監視 =================
