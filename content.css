@@ -303,3 +303,59 @@ html.csy-unwatched-only ytd-grid-video-renderer[data-csy-watched] {
 @media (prefers-reduced-motion: reduce) {
   .csy-check { transition: none; }
 }
+
+/* ---------- 未視聴の連続再生・再生順スイッチ ---------- */
+.csy-play {
+  height: 32px;
+  margin-left: 8px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #2f9e5b;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.csy-play:hover {
+  background: #268a4e;
+}
+.csy-play:focus-visible {
+  outline: 2px solid #2f9e5b;
+  outline-offset: 2px;
+}
+.csy-seg {
+  display: inline-flex;
+  margin-left: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
+}
+.csy-seg button {
+  height: 32px;
+  padding: 0 11px;
+  border: 0;
+  background: transparent;
+  color: var(--yt-spec-text-primary, #0f0f0f);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.csy-seg button + button {
+  border-left: 1px solid rgba(128, 128, 128, 0.25);
+}
+.csy-seg button:hover {
+  background: var(--yt-spec-button-chip-background-hover, rgba(0, 0, 0, 0.1));
+}
+.csy-seg button.is-sel {
+  background: var(--yt-spec-text-primary, #0f0f0f);
+  color: var(--yt-spec-base-background, #fff);
+}
+.csy-seg button:focus-visible {
+  outline: 2px solid #f2b705;
+  outline-offset: -2px;
+}

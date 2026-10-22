@@ -93,6 +93,70 @@
     return isNaN(w) ? 100 : w;
   }
 
+  function isWatched(item) {
+    const p = watchedPercent(item);
+    const id = videoIdOf(item);
+    return (id && !!manual[id]) || (p != null && (mode === 'any' ? p > 0 : p >= 90));
+  }
+
+  // ---------- 未視聴の連続再生 ----------
+  const MAX_PLAY = 50; // YouTubeの一時再生リストに並べられる上限
+  // 並び順：YouTubeの並び替えボタン（左から 新しい順・人気の動画・古い順）の位置
+  const SORTS = [['oldest', '古い順', 2], ['newest', '新しい順', 0], ['popular', '人気順', 1]];
+  function sortButtons() {
+    return [...document.querySelectorAll('ytd-browse:not([hidden]) chip-bar-view-model chip-view-model button, ytd-browse:not([hidden]) ytd-feed-filter-chip-bar-renderer yt-chip-cloud-chip-renderer')];
+  }
+  function currentSortIndex() {
+    return sortButtons().findIndex((b) => b.getAttribute('aria-selected') === 'true' || b.hasAttribute('selected'));
+  }
+  function listItems() {
+    return [...document.querySelectorAll('ytd-browse:not([hidden]) ' + ITEM.split(',').join(', ytd-browse:not([hidden]) '))];
+  }
+  function unwatchedIds() {
+    const ids = [];
+    for (const item of listItems()) {
+      if (isWatched(item)) continue;
+      const id = videoIdOf(item);
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let busy = false;
+  async function playUnwatched() {
+    if (busy) return;
+    busy = true;
+    const y = window.scrollY;
+    try {
+      let ids = unwatchedIds();
+      // 50本に届かなければ、下の動画を読み込みながら集める（最大10回）
+      for (let round = 0; ids.length < MAX_PLAY && round < 10; round++) {
+        const cont = document.querySelector('ytd-browse:not([hidden]) ytd-continuation-item-renderer');
+        if (!cont) break;
+        setPlayLabel(`読み込み中…（未視聴 ${ids.length}本）`);
+        const before = listItems().length;
+        cont.scrollIntoView({ block: 'end' });
+        let grew = false;
+        for (let i = 0; i < 16; i++) {
+          await sleep(500);
+          if (listItems().length > before) { grew = true; break; }
+        }
+        if (!grew) break;
+        ids = unwatchedIds();
+      }
+      window.scrollTo(0, y);
+      if (!ids.length) {
+        setPlayLabel('未視聴の動画はありません');
+        await sleep(2000);
+        return;
+      }
+      location.href = '/watch_videos?video_ids=' + ids.slice(0, MAX_PLAY).join(',');
+    } finally {
+      busy = false;
+      tick();
+    }
+  }
+
   function apply() {
     const active = on && isChannelList();
     document.documentElement.classList.toggle('csy-unwatched-only', active);
@@ -101,9 +165,7 @@
     for (const item of document.querySelectorAll(ITEM)) {
       if (!item.querySelector('a[href*="/watch?v="]')) continue; // 読み込み中の枠は数えない
       total++;
-      const p = watchedPercent(item);
-      const id = videoIdOf(item);
-      const watched = (id && !!manual[id]) || (p != null && (mode === 'any' ? p > 0 : p >= 90));
+      const watched = isWatched(item);
       item.toggleAttribute('data-csy-watched', watched);
       if (watched) watchedCount++;
     }
@@ -114,6 +176,11 @@
   let chip = null;
   let label = null;
   let menu = null;
+  let playBtn = null;
+  let seg = null;
+  function setPlayLabel(text) {
+    if (playBtn && playBtn.textContent !== text) playBtn.textContent = text;
+  }
 
   function findChipBar() {
     const list = [...document.querySelectorAll('ytd-browse[role="main"] ytd-feed-filter-chip-bar-renderer #chips, ytd-browse[role="main"] chip-bar-view-model, ytd-browse:not([hidden]) ytd-feed-filter-chip-bar-renderer #chips, ytd-browse:not([hidden]) chip-bar-view-model')];
@@ -164,10 +231,35 @@
     document.addEventListener('click', (e) => {
       if (menu && !menu.hidden && !wrap.contains(e.target)) menu.hidden = true;
     });
-    wrap.append(btn, opt, menu);
+    playBtn = document.createElement('button');
+    playBtn.type = 'button';
+    playBtn.className = 'csy-play';
+    playBtn.title = '一覧の未視聴の動画を、選んだ順番で続けて再生します（最大50本）';
+    playBtn.addEventListener('click', playUnwatched);
+
+    seg = document.createElement('div');
+    seg.className = 'csy-seg';
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', '再生する順番');
+    for (const [key, text, idx] of SORTS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.idx = String(idx);
+      b.textContent = text;
+      b.addEventListener('click', () => {
+        const target = sortButtons()[idx];
+        if (target && target.getAttribute('aria-selected') !== 'true') target.click();
+      });
+      seg.append(b);
+    }
+    wrap.append(btn, opt, menu, playBtn, seg);
     return wrap;
   }
 
+  function btnTitle(t) {
+    const b = chip && chip.querySelector('.csy-uw-btn');
+    if (b && b.title !== t) b.title = t;
+  }
   // 数はYouTubeが読み込み済みの動画のみ（下へスクロールすると増える）
   function updateChip(unwatched, watched, active) {
     if (!chip) return;
@@ -176,7 +268,14 @@
       ? `未視聴のみ：${unwatched}本（${watched}本を非表示）`
       : `未視聴のみ（未視聴 ${unwatched}本）`;
     if (label.textContent !== text) label.textContent = text; // 同じ内容なら書き換えない（監視の無限ループ防止）
-    chip.title = `読み込み済み ${unwatched + watched}本のうち、未視聴 ${unwatched}本・視聴済み ${watched}本。下へスクロールすると残りも数えます`;
+    btnTitle(`読み込み済み ${unwatched + watched}本のうち、未視聴 ${unwatched}本・視聴済み ${watched}本。下へスクロールすると残りも数えます`);
+    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜）` : '▶ 未視聴を連続再生');
+    const cur = currentSortIndex();
+    for (const b of seg.querySelectorAll('button')) {
+      const sel = Number(b.dataset.idx) === cur;
+      if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
+      if (b.getAttribute('aria-pressed') !== String(sel)) b.setAttribute('aria-pressed', String(sel));
+    }
     for (const b of menu.querySelectorAll('button')) b.classList.toggle('is-sel', b.dataset.mode === mode);
   }
 

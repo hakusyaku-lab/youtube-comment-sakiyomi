@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         コメント先読み＆未視聴のみ（スマホ版）
 // @namespace    https://github.com/hakusyaku-lab/youtube-comment-sakiyomi
-// @version      1.0.0
+// @version      1.1.0
 // @description  スマホ版YouTubeで、動画を開く前に人気コメントを確認し、チャンネルの動画一覧を未視聴だけに絞り込めます。
 // @match        https://m.youtube.com/*
 // @run-at       document-end
@@ -67,8 +67,22 @@ html[dark] .csy-panel, html[darker-dark-theme] .csy-panel {
 .csy-more:disabled { opacity: 0.6; }
 
 html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none !important; }
-.csy-uw { display: flex; position: relative; align-items: stretch; margin: 4px 12px 8px; font: 500 14px -apple-system, "Hiragino Sans", sans-serif; }
-.csy-uw.is-floating { position: fixed; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 3000; margin: 0; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); border-radius: 8px; }
+.csy-uw { display: flex; flex-wrap: wrap; gap: 8px; position: relative; align-items: stretch; margin: 4px 12px 8px; font: 500 14px -apple-system, "Hiragino Sans", sans-serif; }
+.csy-uw-pair { display: flex; }
+.csy-play {
+  flex: 1 1 100%; height: 38px; border: 0; border-radius: 8px; background: #2f9e5b; color: #fff;
+  font: 600 14px -apple-system, "Hiragino Sans", sans-serif; -webkit-tap-highlight-color: transparent;
+}
+.csy-play:active { background: #268a4e; }
+.csy-seg { display: flex; flex: 1 1 100%; border-radius: 8px; overflow: hidden; background: rgba(128, 128, 128, 0.16); }
+.csy-seg button {
+  flex: 1; height: 34px; border: 0; background: transparent; color: inherit;
+  font: 500 13px -apple-system, "Hiragino Sans", sans-serif; -webkit-tap-highlight-color: transparent;
+}
+.csy-seg button + button { border-left: 1px solid rgba(128, 128, 128, 0.3); }
+.csy-seg button.is-sel { background: #17171c; color: #fff; }
+html[dark] .csy-seg button.is-sel, html[darker-dark-theme] .csy-seg button.is-sel { background: #f1f1f4; color: #17171c; }
+.csy-uw.is-floating { position: fixed; left: 12px; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 3000; margin: 0; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); border-radius: 8px; }
 .csy-uw-btn, .csy-uw-opt {
   height: 34px; border: 0; background: rgba(128, 128, 128, 0.16); color: inherit;
   font: inherit; -webkit-tap-highlight-color: transparent;
@@ -357,6 +371,74 @@ html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none
     '.ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment',
   ].join(',');
 
+  function isWatched(item) {
+    const link = item.querySelector('a[href*="/watch?v="]');
+    const id = link && videoIdFrom(link.getAttribute('href'));
+    const p = watchedPercent(item);
+    return (id && !!manual[id]) || (p != null && (mode === 'any' ? p > 0 : p >= 90));
+  }
+
+  // ---------- 未視聴の連続再生 ----------
+  const MAX_PLAY = 50; // YouTubeの一時再生リストに並べられる上限
+  // 並び順：YouTubeの並び替えボタン（左から 新しい順・人気の動画・古い順）の位置
+  const SORTS = [['oldest', '古い順', 2], ['newest', '新しい順', 0], ['popular', '人気順', 1]];
+  function sortButtons() {
+    return [...document.querySelectorAll('ytm-browse chip-bar-view-model chip-view-model button')];
+  }
+  function currentSortIndex() {
+    return sortButtons().findIndex((b) => b.getAttribute('aria-selected') === 'true');
+  }
+  function unwatchedIds() {
+    const ids = [];
+    for (const item of document.querySelectorAll('ytm-rich-item-renderer')) {
+      if (isWatched(item)) continue;
+      const link = item.querySelector('a[href*="/watch?v="]');
+      const id = link && videoIdFrom(link.getAttribute('href'));
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let busy = false;
+  let playBtn = null;
+  let seg = null;
+  function setPlayLabel(text) {
+    if (playBtn && playBtn.textContent !== text) playBtn.textContent = text;
+  }
+  async function playUnwatched() {
+    if (busy) return;
+    busy = true;
+    const y = window.scrollY;
+    try {
+      let ids = unwatchedIds();
+      // 50本に届かなければ、下の動画を読み込みながら集める（最大10回）
+      for (let round = 0; ids.length < MAX_PLAY && round < 10; round++) {
+        setPlayLabel(`読み込み中…（未視聴 ${ids.length}本）`);
+        const before = document.querySelectorAll('ytm-rich-item-renderer').length;
+        const cont = document.querySelector('ytm-browse ytm-continuation-item-renderer');
+        if (cont) cont.scrollIntoView({ block: 'end' });
+        else window.scrollTo(0, document.documentElement.scrollHeight);
+        let grew = false;
+        for (let i = 0; i < 16; i++) {
+          await sleep(500);
+          if (document.querySelectorAll('ytm-rich-item-renderer').length > before) { grew = true; break; }
+        }
+        if (!grew) break;
+        ids = unwatchedIds();
+      }
+      window.scrollTo(0, y);
+      if (!ids.length) {
+        setPlayLabel('未視聴の動画はありません');
+        await sleep(2000);
+        return;
+      }
+      location.href = '/watch_videos?video_ids=' + ids.slice(0, MAX_PLAY).join(',');
+    } finally {
+      busy = false;
+      schedule();
+    }
+  }
+
   function isChannelList() {
     return /^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)\/(videos|streams|podcasts)\/?$/.test(location.pathname);
   }
@@ -406,7 +488,27 @@ html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none
     document.addEventListener('click', (e) => {
       if (menu && !menu.hidden && !wrap.contains(e.target)) menu.hidden = true;
     });
-    wrap.append(btn, opt, menu);
+    const pair = el('div', 'csy-uw-pair');
+    pair.append(btn, opt);
+
+    playBtn = el('button', 'csy-play');
+    playBtn.type = 'button';
+    playBtn.addEventListener('click', playUnwatched);
+
+    seg = el('div', 'csy-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', '再生する順番');
+    for (const [, text, idx] of SORTS) {
+      const b = el('button', null, text);
+      b.type = 'button';
+      b.dataset.idx = String(idx);
+      b.addEventListener('click', () => {
+        const target = sortButtons()[idx];
+        if (target && target.getAttribute('aria-selected') !== 'true') target.click();
+      });
+      seg.append(b);
+    }
+    wrap.append(pair, menu, playBtn, seg);
     return wrap;
   }
 
@@ -436,9 +538,7 @@ html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none
       const link = item.querySelector('a[href*="/watch?v="]');
       if (!link) continue;
       total++;
-      const id = videoIdFrom(link.getAttribute('href'));
-      const p = watchedPercent(item);
-      const watched = (id && !!manual[id]) || (p != null && (mode === 'any' ? p > 0 : p >= 90));
+      const watched = isWatched(item);
       if (item.hasAttribute('data-csy-watched') !== watched) item.toggleAttribute('data-csy-watched', watched);
       if (watched) watchedCount++;
     }
@@ -450,6 +550,13 @@ html.csy-unwatched-only ytm-rich-item-renderer[data-csy-watched] { display: none
     for (const b of menu.querySelectorAll('button')) {
       const sel = b.dataset.mode === mode;
       if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
+    }
+    if (!busy) setPlayLabel(unwatched ? `▶ 未視聴を連続再生（${Math.min(unwatched, MAX_PLAY)}本〜）` : '▶ 未視聴を連続再生');
+    const cur = currentSortIndex();
+    for (const b of seg.querySelectorAll('button')) {
+      const sel = Number(b.dataset.idx) === cur;
+      if (b.classList.contains('is-sel') !== sel) b.classList.toggle('is-sel', sel);
+      if (b.getAttribute('aria-pressed') !== String(sel)) b.setAttribute('aria-pressed', String(sel));
     }
   }
 
