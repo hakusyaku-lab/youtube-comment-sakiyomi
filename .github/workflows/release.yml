@@ -1,0 +1,79 @@
+# main に送る（プッシュする）たびに自動で動きます。
+#  1. 書き間違いがないかチェック
+#  2. manifest.json のバージョンがまだ公開されていなければ、
+#     パソコン用ZIPを作って Releases に公開（スマホ用スクリプトも一緒に添付）
+#
+# 新しい版を出すときは、manifest.json の version を上げて CHANGELOG.md に書き、main に送るだけです。
+
+name: チェックと自動公開
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 書き間違いチェック
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
+          node --check content.js
+          node --check filter.js
+          node --check mobile/comment-sakiyomi.user.js
+
+      - name: バージョンを確認
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION は公開済みなので、今回は公開しません"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ZIPを作る
+        run: python3 scripts/build_zip.py
+
+      - name: 更新内容を CHANGELOG.md から取り出す
+        if: steps.ver.outputs.publish == 'true'
+        run: |
+          awk -v v="### ${{ steps.ver.outputs.version }}" '
+            index($0, v) == 1 { on = 1; next }
+            on && (/^### / || /^## /) { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md に「### ${{ steps.ver.outputs.version }}」の項目がありません"
+            exit 1
+          fi
+          {
+            echo
+            echo "---"
+            echo "**パソコン用**：下の YouTubeCommentSakiyomi.zip をダウンロードして展開してください。"
+            echo "**スマホ用**：comment-sakiyomi.user.js（入れ方は README を参照）"
+          } >> notes.md
+          cat notes.md
+
+      - name: Releases に公開
+        if: steps.ver.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.ver.outputs.version }}" \
+            dist/YouTubeCommentSakiyomi.zip \
+            mobile/comment-sakiyomi.user.js \
+            --title "パソコン版 ${{ steps.ver.outputs.version }}" \
+            --notes-file notes.md \
+            --target "${{ github.sha }}" \
+            --latest
