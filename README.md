@@ -24,7 +24,7 @@ APIキーや登録は要りません。開いているYouTubeのログイン状�
 
 ## ダウンロード
 
-- **パソコン用（Windows・Mac）**：[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/raw/main/download/YouTubeCommentSakiyomi.zip)（バージョン 1.4.0）
+- **パソコン用（Windows・Mac）**：[⬇ 最新版をダウンロード（YouTubeCommentSakiyomi.zip）](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases/latest/download/YouTubeCommentSakiyomi.zip)（過去の版は [Releases](https://github.com/hakusyaku-lab/youtube-comment-sakiyomi/releases) にあります）
 - **スマホ用（iPhone・Android）**：[📱 スマホ用スクリプト](https://raw.githubusercontent.com/hakusyaku-lab/youtube-comment-sakiyomi/main/mobile/comment-sakiyomi.user.js)（バージョン 1.2.0）
 
 これまでの変更点は [更新履歴（CHANGELOG.md）](CHANGELOG.md) にまとめています。
@@ -133,5 +133,15 @@ ChromeとBraveのAndroid版は拡張機能を入れられないため使えま�
 | `content.css` | 見た目 |
 | `使い方.txt` | 使い方（PCに置く用） |
 | `CHANGELOG.md` | 更新履歴 |
-| `download/` | パソコン用のダウンロードZIP |
+| `scripts/build_zip.py` | パソコン用ZIPを作るスクリプト（GitHub Actions が使う） |
+| `.github/workflows/release.yml` | 自動チェックと自動公開の設定 |
 | `mobile/comment-sakiyomi.user.js` | スマホ用スクリプト（iPhone・Android） |
+
+## 新しい版の出し方（開発用）
+
+1. `manifest.json` の `version` を上げる（例：1.4.0 → 1.5.0）
+2. `CHANGELOG.md` の「パソコン版」に `### 1.5.0（日付）` の項目を書く
+3. main に送る（プッシュする）
+
+あとは GitHub Actions が自動で、書き間違いのチェック → ZIP作成 → Releases への公開 までやります。
+version を上げずに送ったときは、チェックだけ動いて公開はしません。
